@@ -1,2 +1,5 @@
 # radio-rando
-A randomisers app for radio-neue
+
+A randomiser app for radio-neue
+
+See INSTALL.md for instructions.
