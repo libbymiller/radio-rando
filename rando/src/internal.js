@@ -3,7 +3,7 @@ const websocket = createWebsocket();
 
 let storedVolume = null;
 let lastEncoderVolume = null;
-let currentSongId = null;
+let lastFileNum = null;
 
 function stopStream(){
     console.log("stopping stream");
@@ -15,15 +15,20 @@ function stopStream(){
 function randomStream(){
     console.log("starting stream",Math.floor(Math.random() * filenames.length));
     let randint = Math.floor(Math.random() * filenames.length);
-    currentSongId = randint;
+    if(randint == lastFileNum){
+       lastFileNum = randint;
+       randint = Math.floor(Math.random() * filenames.length);
+    }else{
+       lastFileNum = randint;
+    }
     const randomAudioFile = filenames[randint];
     const randomAudioFileLength = filelengths[randint];
-    console.log("stream name is ",randomAudioFile,"length is ",randomAudioFileLength);
     if(randomAudioFileLength && randomAudioFileLength > 5){
        const randTimeToJumpTo = Math.floor(Math.random() * randomAudioFileLength);
-       console.log("jumping to point",randTimeToJumpTo);
+       console.log("> 5 randint jumping to point",randTimeToJumpTo,"of",randomAudioFileLength,"file is",randint,"name",randomAudioFile);
        playSomething("assets/audio/"+randomAudioFile, randTimeToJumpTo);
     }else{
+       console.log("< 5 randint jumping to point 0 of",randomAudioFileLength,"file is",randint,"name",randomAudioFile);
        playSomething("assets/audio/"+randomAudioFile);
     }
 }
