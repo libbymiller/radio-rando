@@ -1,0 +1,160 @@
+#!/bin/bash
+set -e
+if [[ $EUID -ne 0 ]]; then
+   echo "This script must be run as root"
+   exit 1
+fi
+
+echo "*** Updating Sources"
+apt-get update
+
+echo "*** Prerequisites"
+apt-get install git -y
+apt-get install pigpio -y
+# apt-get upgrade -y
+
+echo "*** logrotate"
+
+/bin/cat <<EOF >/etc/logrotate.conf
+daily
+rotate 4
+create
+minsize 1k
+size 100M
+compress
+
+include /etc/logrotate.d
+
+/var/log/wtmp {
+    missingok
+    monthly
+    create 0664 root utmp
+    rotate 1
+}
+
+/var/log/btmp {
+    missingok
+    monthly
+    create 0660 root utmp
+    rotate 1
+}
+EOF
+
+echo "*** Pulse Audio"
+apt-get install pulseaudio -y
+
+echo "*** Chrome"
+DEBIAN_FRONTEND=noninteractive apt-get install rpi-chromium-mods -y
+
+echo "*** Enable SPI (RFID reader)"
+raspi-config nonint do_spi 0
+
+echo "*** speech-dispatcher and voices"
+apt-get install -y speech-dispatcher speech-dispatcher-festival
+
+echo "*** youtube-dl"
+apt-get install -y youtube-dl
+
+echo "*** Node"
+#mkdir -pv /opt/node
+#curl -L https://nodejs.org/dist/v8.9.4/node-v8.9.4-linux-armv6l.tar.gz | tar xz --strip-components 1 -C /opt/node
+#ln -sf /opt/node/bin/node /usr/local/bin/node
+#ln -sf /opt/node/bin/npm /usr/local/bin/npm
+#/opt/node/bin/npm config set prefix /usr/local
+mkdir -pv /opt/node
+curl -L https://nodejs.org/dist/latest-v8.x/node-v8.17.0-linux-armv7l.tar.gz | tar xz --strip-components 1 -C /opt/node
+ln -sf /opt/node/bin/node /usr/local/bin/node
+ln -sf /opt/node/bin/npm /usr/local/bin/npm
+/opt/node/bin/npm config set prefix /usr/local
+
+
+echo "*** Radiodan"
+mkdir -p /opt/radiodan
+mkdir -p /opt/radiodan/processes/services
+touch /opt/radiodan/processes/services/{downloader,speech}
+mkdir -p /opt/radiodan/config
+echo "{}" > /opt/radiodan/config/env.json
+
+cd /opt/radiodan
+git clone https://github.com/andrewn/neue-radio rde
+
+/opt/radiodan/rde/deployment/update
+
+chown -R pi:pi /opt/radiodan
+cp /opt/radiodan/rde/deployment/systemd/*.service /etc/systemd/system/
+
+systemctl daemon-reload
+systemctl start manager
+systemctl enable manager
+systemctl enable manager-web-server
+systemctl enable physical
+systemctl enable rfid
+systemctl enable debug
+systemctl enable speech
+systemctl enable serial
+systemctl enable setup
+
+# Enable radio app only
+echo -ne "APP_PATH=/opt/radiodan/rde/apps/radio" > /opt/radiodan/rde/services/setup/tmp/apps
+
+cd /opt/radiodan/rde
+echo "*** Pulse Audio system mode"
+adduser pi pulse
+sed -i '/load-module module-native-protocol-unix/c load-module\ module-native-protocol-unix auth-anonymous=1\ socket=/tmp/pulseaudio-system.sock\nload-module module-native-protocol-tcp auth-anonymous=1 auth-ip-acl=127.0.0.1;192.168.178.0/24' /etc/pulse/system.pa
+mkdir -p /home/pi/.config/pulse/
+echo "default-server = unix:/tmp/pulseaudio-system.sock" >> /home/pi/.config/pulse/client.conf
+chown -R pi:pi /home/pi/.config/pulse/
+cp deployment/systemd/pulseaudio.service /etc/systemd/system/
+systemctl enable pulseaudio
+
+echo "*** IPTables (Port forwarding)"
+DEBIAN_FRONTEND=noninteractive apt-get install -y --allow-downgrades --allow-remove-essential --allow-change-held-packages iptables-persistent
+# All requests to port 80 go to port 5000
+mkdir -p /etc/iptables/
+iptables -t nat -I PREROUTING -p tcp --dport 80 -j REDIRECT --to-ports 5000
+iptables -t nat -I OUTPUT -p tcp -o lo --dport 80 -j REDIRECT --to-ports 5000
+iptables-save > /etc/iptables/rules.v4
+
+echo "*** Samba"
+apt-get install -y --allow-downgrades --allow-remove-essential --allow-change-held-packages samba
+
+/bin/cat <<EOF >/etc/samba/smb.conf
+[global]
+   workgroup = WORKGROUP
+   server string = radio neue (%h)
+   load printers = no
+   log file = /var/log/samba/%m.log
+   max log size = 50
+   dns proxy = no
+
+[apps]
+   path = /opt/radiodan/rde/apps
+   browsable = yes
+   public = yes
+   writable = yes
+   read only = no
+   force user = pi
+   force group = pi
+
+[services]
+   path = /opt/radiodan/rde/services
+   browsable = yes
+   public = yes
+   writable = yes
+   read only = no
+   force user = pi
+   force group = pi
+
+[config]
+   path = /opt/radiodan/config
+   browsable = yes
+   public = yes
+   writable = yes
+   read only = no
+   force user = pi
+   force group = pi
+EOF
+
+/usr/bin/yes pi | smbpasswd -a -s pi
+
+echo "Update complete, please reboot to continue"

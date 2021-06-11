@@ -1,0 +1,14 @@
+[Unit]
+Description=Watcher for new files for rando
+
+[Service]
+WorkingDirectory=/home/pi
+ExecStart=/usr/bin/python3 watcher.py
+Restart=on-failure
+StandardOutput=syslog
+SyslogIdentifier=watcher
+Type=idle
+User=pi
+
+[Install]
+WantedBy=multi-user.target

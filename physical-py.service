@@ -1,0 +1,17 @@
+[Unit]
+Description=Python implementation of rdio physical for button, rotary encoder
+Requires=manager-web-server.service
+After=manager-web-server.service
+
+[Service]
+WorkingDirectory=/opt/radiodan/rde/services/manager
+ExecStart=/usr/bin/env \
+  /opt/radiodan/rde/services/manager/start-physical-environment.sh
+Restart=on-failure
+StandardOutput=syslog
+SyslogIdentifier=physical-py
+Type=idle
+User=pi
+
+[Install]
+WantedBy=multi-user.target
