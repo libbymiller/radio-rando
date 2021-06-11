@@ -18,13 +18,13 @@ contents
        psk="bar"
     }
 
-Plug everything in (like this)[https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/raspberry-pi-wiring]
+Plug everything in like this - https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/raspberry-pi-wiring
 
 Change the name (in /etc/hosts and /etc/hostname)
 
 ## Install code
 
-Install radiodan via provision but fixing node
+Install radiodan via provision
 
     curl https://raw.githubusercontent.com/andrewn/neue-radio/master/deployment/provision | sudo bash
 
@@ -42,7 +42,7 @@ disable spi (just in case; sometimes there seems to be a race condision if enabl
 
 copy over `rando` into `/opt/radiodan/rde/apps` -  `mv rando /opt/radiodan/rde/apps/`
 
-Enable just the rando app, no services using the web interface.
+Enable just the rando app, no services, using the web interface.
 
 reboot again
 
